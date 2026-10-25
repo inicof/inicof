@@ -1,7 +1,8 @@
 # Personalized daily money recap
 
-Status: product requirements for implementation. The email generator, sender,
-authentication, and transaction correction website do not exist yet.
+Status: an authenticated local web prototype implements the dashboard, preferences,
+HTML email preview, ledger, and correction workflow. Automatic sending, scheduled
+jobs, bank-specific imports, and production hosting remain unimplemented.
 
 This document describes public application behavior only. Selected categories,
 reporting preferences, recipient details, transactions, and budget values must

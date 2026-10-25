@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}DRBudgetTracker{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}"></head>
+<body><div class="shell">
+<aside class="sidebar"><a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">dr.</span><span>BudgetTracker<small>SPACE FOR WHAT MATTERS</small></span></a>
+{% if user %}<nav aria-label="Main navigation">
+{% for endpoint, icon, label in [('dashboard','◫','Overview'),('transactions','↔','Transactions'),('settings','☷','Budget & recap'),('email_preview','✉','Email preview')] %}
+<a class="{{ 'active' if request.endpoint == endpoint else '' }}" href="{{ url_for(endpoint) }}"><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav>
+<div class="sidebar-bottom"><span class="privacy-dot"></span> Private household workspace<p class="muted">Local development edition</p><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button">Sign out</button></form></div>{% else %}<div class="sidebar-bottom">Your budget.<br>A little more clarity.</div>{% endif %}</aside>
+<main id="main">{% with messages = get_flashed_messages(with_categories=true) %}{% for level, message in messages %}<div class="notice {{ level }}" role="status">{{ message }}</div>{% endfor %}{% endwith %}
+{% if household is defined and household.demo %}<div class="demo-label">FICTIONAL DEMO · All names, amounts, and transactions in this household are examples.</div>{% endif %}
+{% block content %}{% endblock %}
+<footer>DRBudgetTracker <span>Private by design. Built one day at a time.</span></footer></main></div></body></html>

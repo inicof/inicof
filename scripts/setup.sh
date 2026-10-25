@@ -3,7 +3,10 @@ set -eu
 
 cd "$(dirname "$0")/.."
 : "${DRBUDGET_DATA_DIR:?Set DRBUDGET_DATA_DIR to a private absolute path outside the checkout}"
-python3 scripts/init_private_storage.py
+python3 -c 'import sys; assert sys.version_info[:2] == (3, 12), "The cloud lockfile requires Python 3.12"'
+python3 -m venv .venv
+.venv/bin/python -m pip --cache-dir /tmp/drbudget-pip-cache install --require-hashes -r requirements.lock
+.venv/bin/python scripts/init_private_storage.py
 
 configured_hooks=$(git config --get core.hooksPath || true)
 if [ -n "$configured_hooks" ] && [ "$configured_hooks" != ".githooks" ]; then

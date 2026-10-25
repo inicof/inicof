@@ -15,7 +15,8 @@ drbudgettracker/
   raw_sms/             Original transaction alerts
   config/budget.json   Private household settings; initially blank
   exports/             Generated reports
-  finance.sqlite3      Private database; initially an empty settings table
+  finance.sqlite3      Private settings, users, ledger, rules, and correction audit
+  session.key          Private application session-signing key
 ```
 
 The initializer refuses paths inside or containing the checkout, rejects symlink
@@ -29,6 +30,19 @@ security boundary against other processes running as the same user, workspace
 administrators, or agents with access to the workspace. Keep real financial data
 out of shareable development environment snapshots. It is not a production
 backup or permanent storage service.
+
+The web app keeps household settings and financial records in `finance.sqlite3`.
+The original blank `config/budget.json` is retained for compatibility with the
+initializer; the app does not read it as a second source of household settings.
+Password hashes use Werkzeug's scrypt implementation. Signed, HTTP-only sessions
+expire after 12 hours; sensitive endpoints require household membership and POST
+requests require a session-bound CSRF token. Email links only open review pages.
+Original CSV uploads receive random filenames and owner-only permissions.
+
+These controls are implemented for local evaluation, not a claim of production
+security review. There is no account recovery, invitation flow, scheduled sender,
+database encryption, remote backup, or public deployment yet. Separate registrations
+create separate households; they do not share access by matching a household name.
 
 ## Application requirements before real-data web access
 

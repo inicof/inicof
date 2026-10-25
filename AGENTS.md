@@ -22,5 +22,5 @@ templates, and explicitly fictional test fixtures belong in Git.
 - Cloud tasks are already isolated: use the existing checkout; do not create
   worktrees unless the user explicitly requests one.
 
-Validation: `python3 -m unittest discover -s tests -v` and
+Validation: `.venv/bin/python -m unittest discover -s tests -v` and
 `python3 scripts/check_public_files.py`. Use only fictional data in tests.
