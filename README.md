@@ -4,6 +4,11 @@ Household finance software. This public repository contains code, documentation,
 blank templates, and fictional test data. Financial records and household settings
 belong in private storage outside this checkout.
 
+The planned daily email has three personalized category summaries, the full
+budget, and transaction-level category correction links. See the
+[daily recap requirements](docs/email-recap.md). Email delivery and the correction
+website are not implemented yet.
+
 ## Development setup
 
 Requires Python 3.11+ and Git. No third-party packages are needed yet.
