@@ -1,0 +1,56 @@
+# Credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+.secrets/
+secrets/
+credentials*.json
+client_secret*.json
+token.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Financial records must live outside this checkout. These exclusions are a
+# second line of defense if someone accidentally copies records here.
+private/
+data/
+uploads/
+statements/
+raw_sms/
+exports/
+backups/
+attachments/
+config/budget.json
+config/personal*.json
+config/personal*.yaml
+config/personal*.yml
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.pdf
+*.csv
+*.tsv
+*.ofx
+*.qfx
+*.qif
+*.xls
+*.xlsx
+*.log
+*.zip
+*.tar
+*.gz
+
+# Generated development files
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+.DS_Store
+node_modules/
+dist/
