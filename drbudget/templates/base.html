@@ -5,7 +5,7 @@
 <body><div class="shell">
 <aside class="sidebar"><a class="brand" href="{{ url_for('dashboard') }}"><span class="brand-mark">dr.</span><span>BudgetTracker<small>SPACE FOR WHAT MATTERS</small></span></a>
 {% if user %}<nav aria-label="Main navigation">
-{% for endpoint, icon, label in [('dashboard','◫','Overview'),('transactions','↔','Transactions'),('settings','☷','Budget & recap'),('email_preview','✉','Email preview')] %}
+{% for endpoint, icon, label in [('dashboard','◫','Overview'),('screenshots.index','▣','Daily screenshots'),('transactions','↔','Transactions'),('settings','☷','Budget & recap'),('email_preview','✉','Email preview')] %}
 <a class="{{ 'active' if request.endpoint == endpoint else '' }}" href="{{ url_for(endpoint) }}"><span aria-hidden="true">{{ icon }}</span>{{ label }}</a>{% endfor %}</nav>
 <div class="sidebar-bottom"><span class="privacy-dot"></span> Private household workspace<p class="muted">Local development edition</p><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button">Sign out</button></form></div>{% else %}<div class="sidebar-bottom">Your budget.<br>A little more clarity.</div>{% endif %}</aside>
 <main id="main">{% with messages = get_flashed_messages(with_categories=true) %}{% for level, message in messages %}<div class="notice {{ level }}" role="status">{{ message }}</div>{% endfor %}{% endwith %}

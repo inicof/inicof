@@ -13,6 +13,7 @@ In the cloud development environment it is `/workspace/private/drbudgettracker`:
 drbudgettracker/
   statements/          Original bank and card documents
   raw_sms/             Original transaction alerts
+  screenshots/         Private normalized screenshot images with random names
   config/budget.json   Private household settings; initially blank
   exports/             Generated reports
   finance.sqlite3      Private settings, users, ledger, rules, and correction audit
@@ -38,6 +39,12 @@ Password hashes use Werkzeug's scrypt implementation. Signed, HTTP-only sessions
 expire after 12 hours; sensitive endpoints require household membership and POST
 requests require a session-bound CSRF token. Email links only open review pages.
 Original CSV uploads receive random filenames and owner-only permissions.
+Screenshot images also use random filenames and owner-only permissions; their
+review batches, OCR text, source fragments, and decisions live in the private
+database. Unlike a parsed transaction, the source screenshot and OCR text may
+include available credit or other information visible on the screen. They are
+not copied into email recaps. Image metadata is stripped on upload. Tesseract
+reads the images locally; no external AI API receives them.
 
 These controls are implemented for local evaluation, not a claim of production
 security review. There is no account recovery, invitation flow, scheduled sender,

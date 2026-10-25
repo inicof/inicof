@@ -13,6 +13,10 @@ from drbudget.web import create_app
 
 
 NOW = datetime(2026, 3, 3, 8, tzinfo=timezone.utc)
+FICTIONAL_NOTIFICATION = (
+    "Credit Card XX0000 was used for AED42.35 on 02/03/2026 10:11:12 "
+    "at FICTIONAL Example Market, Test City-AE. Available limit AED98765.43"
+)
 
 
 class AppTests(unittest.TestCase):
@@ -266,6 +270,63 @@ class AppTests(unittest.TestCase):
         self.assertEqual(earlier["allocation"], 10000)
         self.assertEqual(current["allocation"], 15000)
         self.assertEqual(current["remaining"], 35000)
+
+    def test_pasted_notification_is_private_and_needs_review(self):
+        response = self.post("/notifications", {"notification": FICTIONAL_NOTIFICATION})
+        self.assertEqual(response.status_code, 302)
+        with self.db() as connection:
+            transaction = dict(connection.execute("SELECT * FROM transactions").fetchone())
+            source = dict(connection.execute("SELECT * FROM notification_sources").fetchone())
+            dump = "\n".join(connection.iterdump())
+        self.assertEqual(transaction["amount"], 4235)
+        self.assertEqual(transaction["status"], "review")
+        self.assertEqual(transaction["household_id"], self.hid)
+        self.assertEqual(source["occurred_at"], "2026-03-02T10:11:12+04:00")
+        self.assertEqual(source["card_suffix"], "0000")
+        self.assertNotIn("98765.43", dump)
+        page = self.client.get(response.location)
+        self.assertIn(b"Bank timestamp:", page.data)
+        self.assertNotIn(b"98765.43", page.data)
+        self.assertEqual(self.report()["rows"][0]["month_spent"], 0)
+        self.post(response.location, dict(category_id=self.food, kind="expense", status="confirmed", version="1"))
+        self.assertEqual(self.report()["rows"][0]["month_spent"], 4235)
+
+    def test_repeated_paste_does_not_overwrite_manual_correction_or_inflate_totals(self):
+        first = self.post("/notifications", {"notification": FICTIONAL_NOTIFICATION})
+        self.post(first.location, dict(category_id=self.food, kind="expense", status="confirmed", version="1"))
+        second = self.post("/notifications", {"notification": FICTIONAL_NOTIFICATION})
+        self.assertNotEqual(first.location, second.location)
+        with self.db() as connection:
+            statuses = connection.execute("SELECT status, manual FROM transactions ORDER BY rowid").fetchall()
+        self.assertEqual([tuple(row) for row in statuses], [("confirmed", 1), ("review", 0)])
+        self.assertEqual(self.report()["rows"][0]["month_spent"], 4235)
+
+    def test_invalid_notification_saves_nothing_and_does_not_echo_input(self):
+        text = "FICTIONAL security code 000000"
+        response = self.post("/notifications", {"notification": text}, follow_redirects=True)
+        self.assertIn(b"Nothing was imported", response.data)
+        self.assertNotIn(text.encode(), response.data)
+        with self.db() as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM transactions").fetchone()[0], 0)
+            self.assertEqual(connection.execute("SELECT count(*) FROM notification_sources").fetchone()[0], 0)
+
+    def test_notification_import_requires_sign_in_and_csrf(self):
+        self.assertEqual(self.client.post("/notifications", data={"notification": FICTIONAL_NOTIFICATION}).status_code, 400)
+        anonymous = self.app.test_client()
+        anonymous.get("/login")
+        response = self.post("/notifications", {"notification": FICTIONAL_NOTIFICATION}, client=anonymous)
+        self.assertIn("/login", response.location)
+        with self.db() as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM transactions").fetchone()[0], 0)
+
+    def test_saved_merchant_rule_suggests_category_but_still_requires_review(self):
+        with self.db() as connection:
+            connection.execute("INSERT INTO merchant_rules VALUES (?, ?, ?)",
+                               (self.hid, "fictional example market, test city-ae", self.food))
+        self.post("/notifications", {"notification": FICTIONAL_NOTIFICATION})
+        with self.db() as connection:
+            row = connection.execute("SELECT category_id, status FROM transactions").fetchone()
+        self.assertEqual(tuple(row), (self.food, "review"))
 
 
 if __name__ == "__main__":

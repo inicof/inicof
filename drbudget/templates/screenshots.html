@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<header class="page-heading"><div><p class="eyebrow">ONE SMALL DAILY HABIT</p><h1>Your daily screenshots</h1><p class="muted">Upload, review, and bring your budget up to date.</p></div></header>
+<section class="panel">
+  <h2>Upload a notification screenshot</h2>
+  <p>Expand your bank notifications so each purchase is fully visible. If they do not fit, upload more than one screenshot; overlapping entries will be checked during review. Use transaction alerts only and exclude login or security-code messages.</p>
+  <form method="post" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Screenshot<input type="file" name="screenshot" accept="image/png,image/jpeg,image/webp" required></label>
+    <small class="muted">PNG, JPEG, or WebP · up to 6 MB and 12 megapixels · one image at a time. Text extraction may take up to 30 seconds.</small>
+    <button>Upload and read screenshot</button>
+  </form>
+  <p class="fine-print">Images are stored privately and text is read locally. Nothing enters your spending totals until you confirm it. Only English ADCB credit-card purchase formats are currently supported; cropped entries and other types need manual review.</p>
+</section>
+<section class="panel"><h2>Upload history</h2>
+{% for batch in batches %}<div class="screenshot-history-row"><div><strong>Screenshot · {{ batch.created_at }} UTC</strong><p class="muted">{{ batch.state|capitalize }} · {{ batch.pending }} entries awaiting review</p></div><a class="button secondary" href="{{ url_for('screenshots.review', bid=batch.id) }}">Open review</a></div>
+{% else %}<p class="empty-copy">No screenshots uploaded yet. Your first upload will appear here.</p>{% endfor %}
+</section>
+{% endblock %}

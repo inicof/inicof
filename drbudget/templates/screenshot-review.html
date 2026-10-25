@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<a class="back-link" href="{{ url_for('screenshots.index') }}">← Daily screenshots</a>
+<header class="page-heading"><div><p class="eyebrow">A QUICK CHECK BEFORE IT COUNTS</p><h1>Review this screenshot</h1><p class="muted">{{ batch.created_at }} UTC · {{ batch.state|capitalize }}</p></div><a class="button secondary" href="{{ url_for('screenshots.original_image', bid=batch.id) }}" target="_blank" rel="noopener">Open full image</a></header>
+<div class="notice">Check every extracted amount, date, merchant, and category against the image. Text recognition can make mistakes even when an entry looks complete. The available credit limit is never spending.</div>
+<div class="screenshot-review-grid">
+  <section class="panel screenshot-source"><h2>Original screenshot</h2><a href="{{ url_for('screenshots.original_image', bid=batch.id) }}" target="_blank" rel="noopener"><img class="private-screenshot" src="{{ url_for('screenshots.original_image', bid=batch.id) }}" alt="Your private uploaded bank notification screenshot"></a><p class="fine-print">Only members of this household can open this image. This page does not establish whether all of the day's transactions were captured.</p></section>
+  <div>
+    {% if batch.state in ['queued', 'processing', 'failed'] %}<section class="panel"><h2>{{ 'Text extraction needs attention' if batch.state == 'failed' else 'Text extraction in progress' }}</h2><p>{{ batch.error or 'Refresh this page shortly. If processing was interrupted, retry after one minute.' }}</p><form method="post" action="{{ url_for('screenshots.retry', bid=batch.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary">Retry text extraction</button></form></section>{% endif %}
+    {% for item in items %}<section class="panel screenshot-entry" id="entry-{{ item.id }}">
+      <p class="eyebrow">ENTRY {{ loop.index }} · {{ item.state|upper }}</p>
+      {% if item.purchase %}<h2 class="wrap-anywhere">{{ item.purchase.merchant }}</h2><div class="big-number">{{ item.purchase.amount_minor|money }} <small>{{ item.purchase.currency }}</small></div><p class="muted">{{ item.purchase.occurred_at.strftime('%d %b %Y, %H:%M:%S %Z') }} · Card ending {{ item.purchase.card_suffix }}</p>
+      {% else %}<h2>Needs a closer look</h2><p class="muted">{{ item.error }}</p>{% endif %}
+      {% if item.state != 'pending' %}
+        {% if item.transaction_id %}<a href="{{ url_for('transaction', tid=item.transaction_id) }}">Open linked transaction →</a>{% else %}<p class="muted">Excluded from this import. No transaction was created.</p>{% endif %}
+      {% else %}
+        {% if item.matches %}<div class="notice error"><strong>Possible duplicate</strong><p>Compare these entries before adding another purchase.</p>
+          {% for match in item.matches %}<form method="post" action="{{ url_for('screenshots.decide', item_id=item.id) }}" class="duplicate-choice"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ item.version }}"><input type="hidden" name="existing_transaction" value="{{ match.id }}"><a href="{{ url_for('transaction', tid=match.id) }}">{{ match.date }} · {{ match.currency }} {{ match.amount|money }} · {{ match.status }}</a><button class="secondary" name="action" value="link">Use existing transaction</button></form>{% endfor %}
+        </div>{% endif %}
+        {% if item.purchase %}<form method="post" action="{{ url_for('screenshots.decide', item_id=item.id) }}" class="stack">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ item.version }}">
+          <label>Category<select name="category_id" aria-label="Category"><option value="">Choose a category / decide later</option>{% for category in categories %}<option value="{{ category.id }}" {{ 'selected' if category.id == item.suggestion else '' }}>{{ category.name }}</option>{% endfor %}</select></label>
+          {% if item.matches %}<label class="checkbox"><input type="checkbox" name="separate_purchase">I checked the possible match; this is a separate purchase.</label>{% endif %}
+          <label class="checkbox"><input type="checkbox" name="remember">Remember this exact merchant's category for future suggestions</label>
+          <div class="actions"><button name="action" value="confirm">Confirm purchase</button><button class="secondary" name="action" value="review">Save for later review</button></div>
+          <small class="muted">Confirming counts the purchase in your budget. Saving for later review does not.</small>
+        </form>{% endif %}
+        <details class="ocr-details" {{ 'open' if not item.purchase else '' }}><summary>Correct the extracted text</summary><form method="post" action="{{ url_for('screenshots.decide', item_id=item.id) }}" class="stack"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ item.version }}"><label>Complete purchase notification<textarea name="text" rows="6" maxlength="4096" required>{{ item.edited_text or item.original_text }}</textarea></label><button name="action" value="reparse" class="secondary">Read corrected text</button></form><p class="fine-print">If the screenshot is cropped, upload a complete one. For unsupported transaction types, <a href="{{ url_for('transactions') }}">add a manual transaction</a> and exclude this item.</p></details>
+        <form method="post" action="{{ url_for('screenshots.decide', item_id=item.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ item.version }}"><button class="text-button" name="action" value="dismiss">Exclude this item from import</button></form>
+      {% endif %}
+    </section>{% endfor %}
+    {% if batch.state == 'complete' %}<section class="panel"><h2>Screenshot review complete</h2><p>Your saved entries are in Transactions. Only confirmed entries affect the budget and daily recap.</p><a class="button" href="{{ url_for('dashboard') }}">See updated budget</a></section>{% endif %}
+  </div>
+</div>
+{% endblock %}

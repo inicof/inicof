@@ -6,7 +6,8 @@ belong in private storage outside this checkout.
 
 The first working version includes sign-in, a private household dashboard,
 effective-dated category allocations, rollover-aware balances, manual transaction
-entry, CSV import with review, and an HTML daily email preview. The recap features
+entry, daily screenshot upload with local OCR and review, CSV and supported ADCB notification-text imports, and an HTML
+daily email preview. The recap features
 three chosen categories, the full budget, and links to correct individual
 transactions. Corrections update the ledger, retain an audit trail, and survive
 repeat imports. See the [recap requirements](docs/email-recap.md).
@@ -18,8 +19,11 @@ implemented. No emails are sent by this code.
 
 ## Development setup
 
-The verified cloud lockfile targets Python 3.12 on Linux x86_64. It pins Flask and
-all runtime dependencies with artifact hashes. Git is also required.
+The verified cloud lockfile targets Python 3.12 on Linux x86_64. It pins Flask,
+Pillow, and their Python dependencies with artifact hashes. Git and Tesseract 5
+with English language data are also required; both are available in the prepared
+cloud environment. On Debian/Ubuntu, the system packages are `tesseract-ocr` and
+`tesseract-ocr-eng`. The image-based tests additionally use `fonts-dejavu-core`.
 
 In the Codex cloud workspace:
 
@@ -52,6 +56,25 @@ Application settings are stored in the private database, not in the legacy blank
 
 ## Imports and accounting
 
+### Daily screenshots
+
+Open **Daily screenshots**, upload a PNG/JPEG/WebP screenshot, and review its
+extracted entries alongside the image. Uploads are private, at most 6 MB and
+12 megapixels, and processed locally by Tesseract. Only confirmed entries count
+in the budget and recap; uncertain entries can be saved for later review.
+
+Identical uploaded images reuse their existing batch. Overlapping screenshots
+suggest matching transactions using the card suffix, bank timestamp, merchant,
+currency, and amount where available. You explicitly link the existing record
+or confirm that an entry is a separate purchase. Cropped and unreadable entries
+are not inferred. The original screenshot and OCR text remain in private storage.
+
+This is a manual web upload flow, not automatic ingestion of screenshots sent
+in a chat or email. See [the screenshot architecture](docs/screenshot-architecture.md)
+for processing states, safeguards, limitations, and deployment requirements.
+
+### CSV
+
 CSV columns: `date,merchant,amount,currency,kind,account,source_id`, with optional
 `category`. Use household-local `YYYY-MM-DD` dates, positive amounts, and one of
 the supported kinds shown in the transaction form. Refunds have kind `refund`.
@@ -62,6 +85,21 @@ invent identifiers from row positions in overlapping exports.
 
 Imports are atomic and new rows always start in review. Original CSVs remain in
 private storage. This normalized CSV format is not yet a bank-specific parser.
+
+### ADCB notification text
+
+The Transactions screen accepts one pasted, complete ADCB credit-card purchase
+body in the `Credit Card … was used for … on … at … Available limit …` format.
+It extracts the purchase amount, currency, original merchant description, masked
+card suffix, and timestamp. The available credit limit is discarded and is never
+included in spending or income. Only parsed transaction details and timestamp
+metadata are retained in the private database; the full pasted message is not
+saved. See [notification capture boundaries](docs/notification-capture.md).
+
+These messages do not contain a reliable bank transaction ID. Repeated pastes
+are kept for review rather than silently deleted or automatically confirmed.
+Check for an existing record before confirming them, particularly when combining
+notification imports with statements. Existing manual corrections are preserved.
 
 Category allocations apply from the selected month onward. Rollover carries
 positive or negative remaining balances, starting from zero at budget inception;

@@ -23,6 +23,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from scripts.init_private_storage import check_regular_file, initialize
 from . import store
+from .notifications import PARSER_VERSION, parse_card_purchase
+from .screenshot_routes import pages as screenshot_pages
 
 
 def create_app(data_dir=None, config=None):
@@ -50,7 +52,7 @@ def create_app(data_dir=None, config=None):
         SECRET_KEY=secret, DATABASE=root / "finance.sqlite3", DATA_DIR=root,
         SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=bool(public_url), PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
-        MAX_CONTENT_LENGTH=2 * 1024 * 1024, PUBLIC_URL=public_url,
+        MAX_CONTENT_LENGTH=8 * 1024 * 1024, PUBLIC_URL=public_url,
         ALLOW_REGISTRATION=os.environ.get("DRBUDGET_ALLOW_REGISTRATION", "1") == "1",
         NOW=lambda: datetime.now(timezone.utc),
         TRUSTED_HOSTS=["localhost", "127.0.0.1"] + ([urlparse(public_url).hostname] if public_url else []),
@@ -60,6 +62,7 @@ def create_app(data_dir=None, config=None):
     with store.database(app.config["DATABASE"]) as connection:
         connection.executescript(store.SCHEMA)
     dummy_hash = generate_password_hash(secrets.token_hex(24))
+    app.register_blueprint(screenshot_pages)
 
     def db():
         return store.database(app.config["DATABASE"])
@@ -76,7 +79,7 @@ def create_app(data_dir=None, config=None):
         return household, recap
 
     def safe_next(value):
-        return value if re.fullmatch(r"/transactions/[0-9a-f-]{36}", value or "") else "/"
+        return value if re.fullmatch(r"/transactions/[0-9a-f-]{36}|/screenshots(?:/[0-9a-f-]{36})?", value or "") else "/"
 
     def authenticated(function):
         @wraps(function)
@@ -129,7 +132,7 @@ def create_app(data_dir=None, config=None):
     def safe_error(error):
         messages = {400: "The form could not be processed. Reload and try again.",
                     403: "This action is not available.", 404: "This item is unavailable or belongs to another household.",
-                    413: "Use a file smaller than 2 MB.", 429: "Too many sign-in attempts. Try again in 15 minutes."}
+                    413: "The upload is too large. Screenshots must be at most 6 MB; CSV files at most 2 MB.", 429: "Too many sign-in attempts. Try again in 15 minutes."}
         return render_template("error.html", message=messages[error.code]), error.code
 
     @app.route("/register", methods=["GET", "POST"])
@@ -282,6 +285,26 @@ def create_app(data_dir=None, config=None):
                 flash(str(error), "error")
         return render_template("transactions.html", household=household, recap=recap)
 
+    @app.post("/notifications")
+    @authenticated
+    def import_notification():
+        household = current_household()
+        try:
+            purchase = parse_card_purchase(request.form.get("notification", ""))
+            with db() as connection:
+                # No bank transaction ID is present in this format. Repeated
+                # pastes remain reviewable records, never automatic deletions.
+                tid, _ = store.add_transaction(
+                    connection, household["id"], purchase.ledger_values(household["timezone"]))
+                connection.execute("INSERT INTO notification_sources VALUES (?, ?, ?, ?, ?)",
+                                   (tid, household["id"], purchase.occurred_at.isoformat(),
+                                    purchase.card_suffix, PARSER_VERSION))
+            flash("Notification added for review. Check its category and whether it already exists before confirming.", "success")
+            return redirect(url_for("transaction", tid=tid))
+        except ValueError as error:
+            flash(str(error) + " Nothing was imported.", "error")
+            return redirect(url_for("transactions"))
+
     @app.route("/transactions/<tid>", methods=["GET", "POST"])
     @authenticated
     def transaction(tid):
@@ -306,7 +329,9 @@ def create_app(data_dir=None, config=None):
             cats = store.categories(connection, household["id"])
             changes = connection.execute("SELECT created_at FROM corrections WHERE transaction_id=? AND household_id=? ORDER BY rowid DESC",
                                          (tid, household["id"])).fetchall()
-        return render_template("transaction.html", household=household, txn=row, categories=cats, changes=changes)
+            source = connection.execute("SELECT occurred_at, card_suffix FROM notification_sources "
+                                        "WHERE transaction_id=? AND household_id=?", (tid, household["id"])).fetchone()
+        return render_template("transaction.html", household=household, txn=row, categories=cats, changes=changes, source=source)
 
     @app.post("/import")
     @authenticated
@@ -316,7 +341,9 @@ def create_app(data_dir=None, config=None):
         try:
             if not upload:
                 raise ValueError
-            raw = upload.read()
+            raw = upload.read(2 * 1024 * 1024 + 1)
+            if len(raw) > 2 * 1024 * 1024:
+                abort(413)
             reader = csv.DictReader(io.StringIO(raw.decode("utf-8-sig")))
             required = {"date", "merchant", "amount", "currency", "kind", "account", "source_id"}
             if not required.issubset(reader.fieldnames or []):

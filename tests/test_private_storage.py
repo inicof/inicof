@@ -83,7 +83,7 @@ class PublicFileCheckTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(repo)], check=True)
             shutil.copyfile(REPOSITORY / ".gitignore", repo / ".gitignore")
             names = [".env", "statement.pdf", "transactions.csv", "finance.sqlite3",
-                     "raw_sms/message.txt", "config/budget.json", "credentials.json"]
+                     "raw_sms/message.txt", "screenshots/example.png", "config/budget.json", "credentials.json"]
             allowed = ["README.md", "config/budget.example.json"]
             for name in names + allowed:
                 file = repo / name

@@ -3,6 +3,14 @@ set -eu
 
 cd "$(dirname "$0")/.."
 : "${DRBUDGET_DATA_DIR:?Set DRBUDGET_DATA_DIR to a private absolute path outside the checkout}"
+if ! command -v tesseract >/dev/null 2>&1; then
+    printf '%s\n' 'Install Tesseract 5 and English data first (Debian/Ubuntu: tesseract-ocr tesseract-ocr-eng).'
+    exit 1
+fi
+if ! tesseract --list-langs 2>/dev/null | grep -qx eng; then
+    printf '%s\n' 'Tesseract English language data is required for screenshot imports.'
+    exit 1
+fi
 python3 -c 'import sys; assert sys.version_info[:2] == (3, 12), "The cloud lockfile requires Python 3.12"'
 python3 -m venv .venv
 .venv/bin/python -m pip --cache-dir /tmp/drbudget-pip-cache install --require-hashes -r requirements.lock

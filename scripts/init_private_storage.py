@@ -36,7 +36,7 @@ def initialize(data_dir: Path) -> Path:
         raise ValueError("Private storage must be outside and not contain the checkout")
 
     directories = [root, *(root / name for name in
-                          ("statements", "raw_sms", "config", "exports"))]
+                          ("statements", "raw_sms", "config", "exports", "screenshots"))]
     budget = root / "config" / "budget.json"
     database = root / "finance.sqlite3"
     # Check every existing destination before modifying anything.

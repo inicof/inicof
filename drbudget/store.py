@@ -48,6 +48,26 @@ CREATE TABLE IF NOT EXISTS transactions (
  UNIQUE(household_id, source_key)
 );
 CREATE INDEX IF NOT EXISTS transactions_household_date ON transactions(household_id, date);
+CREATE TABLE IF NOT EXISTS notification_sources (
+ transaction_id TEXT PRIMARY KEY REFERENCES transactions(id),
+ household_id TEXT NOT NULL REFERENCES households(id),
+ occurred_at TEXT NOT NULL, card_suffix TEXT NOT NULL, parser_version TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS screenshot_batches (
+ id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id),
+ image_hash TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'queued',
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, started_at REAL,
+ attempt INTEGER NOT NULL DEFAULT 0, error TEXT, ocr_text TEXT,
+ UNIQUE(household_id, image_hash)
+);
+CREATE TABLE IF NOT EXISTS screenshot_items (
+ id TEXT PRIMARY KEY, batch_id TEXT NOT NULL REFERENCES screenshot_batches(id),
+ household_id TEXT NOT NULL REFERENCES households(id), position INTEGER NOT NULL,
+ original_text TEXT NOT NULL, edited_text TEXT, parsed_json TEXT, error TEXT,
+ state TEXT NOT NULL DEFAULT 'pending', version INTEGER NOT NULL DEFAULT 1,
+ transaction_id TEXT REFERENCES transactions(id)
+);
+CREATE INDEX IF NOT EXISTS screenshot_items_batch ON screenshot_items(batch_id, position);
 CREATE TABLE IF NOT EXISTS merchant_rules (
  household_id TEXT NOT NULL REFERENCES households(id), merchant TEXT NOT NULL,
  category_id TEXT NOT NULL REFERENCES categories(id), PRIMARY KEY(household_id, merchant)
